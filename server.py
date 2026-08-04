@@ -208,22 +208,24 @@ class AppHandler(SimpleHTTPRequestHandler):
             return self.send_json(201, {"message": "Jogador cadastrado."})
 
         parts = self.path.strip("/").split("/")
-        if len(parts) == 4 and parts[:2] == ["api", "players"] and parts[3] == "goals":
+        if len(parts) == 4 and parts[:2] == ["api", "players"] and parts[3] == "stats":
             if not self.session() or self.session().get("role") != "admin":
-                return self.send_json(403, {"error": "Apenas o administrador pode alterar os gols."})
+                return self.send_json(403, {"error": "Apenas o administrador pode alterar as estatísticas."})
             try:
                 player_id = int(parts[2])
-                goals = int(self.body().get("goals", -1))
+                data = self.body()
+                goals = int(data.get("goals", -1))
+                assists = int(data.get("assists", -1))
             except (TypeError, ValueError):
-                return self.send_json(400, {"error": "Informe uma quantidade de gols válida."})
-            if goals < 0:
-                return self.send_json(400, {"error": "A quantidade de gols não pode ser negativa."})
+                return self.send_json(400, {"error": "Informe quantidades válidas de gols e assistências."})
+            if goals < 0 or assists < 0:
+                return self.send_json(400, {"error": "Gols e assistências não podem ser negativos."})
             conn = db()
-            cursor = conn.execute("UPDATE players SET goals=? WHERE id=?", (goals, player_id))
+            cursor = conn.execute("UPDATE players SET goals=?, assists=? WHERE id=?", (goals, assists, player_id))
             conn.commit(); conn.close()
             if not cursor.rowcount:
                 return self.send_json(404, {"error": "Jogador não encontrado."})
-            return self.send_json(200, {"message": "Quantidade de gols atualizada."})
+            return self.send_json(200, {"message": "Estatísticas atualizadas."})
 
         if self.path == "/api/rules":
             if not self.session() or self.session().get("role") != "admin":
