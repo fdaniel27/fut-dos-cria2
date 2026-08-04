@@ -3,12 +3,13 @@ from http import cookies
 from pathlib import Path
 import hashlib
 import json
+import os
 import secrets
 import sqlite3
 
 ROOT = Path(__file__).parent
-DB_PATH = ROOT / "data" / "fut-dos-cria.db"
-ADMIN_PASSWORD = "Futdoscrias2026"
+DB_PATH = Path(os.environ.get("DATABASE_PATH", ROOT / "data" / "fut-dos-cria.db"))
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Futdoscrias2026")
 SESSIONS = {}
 DEFAULT_RULES = [
     ("Objetivo", "A pelada promove diversão, amizade, respeito e competitividade saudável. Todos devem respeitar este regulamento."),
@@ -33,7 +34,7 @@ DEFAULT_RULES = [
 
 
 def db():
-    DB_PATH.parent.mkdir(exist_ok=True)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("""CREATE TABLE IF NOT EXISTS users (
@@ -273,7 +274,6 @@ class AppHandler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     db().close()
     print("Fut dos Cria em http://localhost:8000")
-    import os
 
 PORT = int(os.environ.get("PORT", 8000))
 ThreadingHTTPServer(("0.0.0.0", PORT), AppHandler).serve_forever()
