@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fut dos Cria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#">
+          <span class="brand-ball">⚽</span>
+          <span>FUT <b>DOS</b> CRIA</span>
+        </a>
+        <p class="season-label">TEMPORADA 2025</p>
+        <nav class="main-nav" id="mainNav">
+          <button class="nav-link active" data-page="home"><span>▦</span> Visão geral</button>
+          <button class="nav-link" data-page="draw"><span>♜</span> Sorteio semanal</button>
+          <button class="nav-link" data-page="players"><span>♙</span> Jogadores</button>
+          <button class="nav-link" data-page="finance"><span>◈</span> Financeiro</button>
+          <button class="nav-link" data-page="rules"><span>☷</span> Regras</button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="next-game"><span>PRÓXIMA PELADA</span><strong>Terça, 22h30</strong><small id="availableSpots">Clube do Diário · 15 vagas</small></div>
+          <button class="admin-toggle" id="adminToggle"><span>⚙</span> Área do administrador</button>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <button class="menu-button" id="menuButton">☰</button>
+          <div class="breadcrumb">FUT DOS CRIA <span>/</span> <b id="breadcrumb">VISÃO GERAL</b></div>
+          <div class="top-actions"><span class="online-dot"></span><span class="live-label">AO VIVO</span><button class="login-btn" id="loginButton">Entrar</button><button class="avatar" id="userAvatar">?</button></div>
+        </header>
+
+        <section class="page active-page" id="home">
+          <div class="hero-line">
+            <div><p class="eyebrow">A RESENHA É SÉRIA</p><h1>Fala, <em>cria!</em> <span>⚽</span></h1><p class="subhead">Acompanhe tudo que rolou na última pelada.</p></div>
+            <button class="primary-btn" data-go="draw">Ver sorteio da semana <b>→</b></button>
+          </div>
+          <div class="stat-grid">
+            <article class="stat-card lime"><div class="stat-icon">⚽</div><p>PRÓXIMA PELADA</p><h3>Terça, 22h30</h3><small>Clube do Diário</small></article>
+            <article class="stat-card dark"><div class="stat-icon">♟</div><p>CONFIRMADOS</p><h3><span id="confirmedCount">0</span> <span>/ <span id="capacityCount">15</span></span></h3><div class="mini-progress"><i id="confirmationProgress" style="width:0%"></i></div></article>
+            <article class="stat-card purple"><div class="stat-icon">♙</div><p>JOGADORES</p><h3>0 cadastrados</h3><small>Aguardando cadastro</small></article>
+            <article class="stat-card orange"><div class="stat-icon">R$</div><p>CAIXA ATUAL</p><h3 id="homeBalance">R$ 0,00</h3><small>Aguardando lançamentos</small></article>
+          </div>
+          <div class="presence-card"><div><p class="eyebrow">PRÓXIMA TERÇA · 22H30</p><h2>Vai colar na pelada?</h2><p id="presenceMessage">Entre na sua conta para confirmar ou recusar sua presença.</p></div><button class="primary-btn" id="presenceButton">Confirmar presença</button></div>
+          <div class="section-heading"><div><p class="eyebrow">LOCAL DA PELADA</p><h2>Clube do Diário <span>•</span> Terças, 22h30</h2></div><button class="text-btn" data-go="draw">Ver sorteio →</button></div>
+          <div class="match-card empty-match"><div><p class="team-tag">PRÓXIMA PELADA</p><strong>O sorteio será liberado quando houver jogadores confirmados.</strong><small>Clube do Diário · Rua Professor Souto Maior, 286</small></div></div>
+          <div class="two-col">
+            <section class="panel leaderboard"><div class="panel-title"><div><p class="eyebrow">RANKING</p><h2>Participações em gols</h2></div><button class="text-btn" data-go="players">Ver todos →</button></div><div id="leaderboard"></div></section>
+            <section class="panel activity"><div class="panel-title"><div><p class="eyebrow">RANKING</p><h2>Maiores assistentes</h2></div></div><div id="assistLeaderboard"></div></section>
+          </div>
+          <section class="panel goals-ranking"><div class="panel-title"><div><p class="eyebrow">RANKING</p><h2>Artilheiros da pelada</h2></div><button class="text-btn" data-go="players">Ver estatísticas →</button></div><div id="goalsLeaderboard"></div></section>
+        </section>
+
+        <section class="page" id="draw">
+          <div class="hero-line"><div><p class="eyebrow">PELADA #23 · 26 JUL</p><h1>Sorteio dos <em>times</em></h1><p class="subhead">Equilíbrio garantido. Agora é só fazer a parte de vocês.</p></div><button class="primary-btn admin-only" id="reroll">Sortear novamente <b>↻</b></button></div>
+          <div class="draw-meta"><span><b id="drawConfirmedCount">0</b> confirmados</span><span><b>3</b> times</span><span id="drawVacancyCount">15 vagas restantes</span><span>Clube do Diário · Terças, 22h30</span><span>Rua Professor Souto Maior, 286</span></div>
+          <div class="teams-grid" id="teamsGrid"></div>
+          <p class="fairness">✦ Times montados buscando equilíbrio entre posição, perna boa e estrelas.</p>
+        </section>
+
+        <section class="page" id="players">
+          <div class="hero-line"><div><p class="eyebrow">TEMPORADA 2025</p><h1>Os <em>crias</em> do fut</h1><p class="subhead">Estatísticas atualizadas a cada pelada.</p></div><button class="primary-btn admin-only" id="addPlayer">+ Cadastrar jogador</button></div>
+          <div class="filters"><button class="filter active">Todos</button><button class="filter">Atacantes</button><button class="filter">Meias</button><button class="filter">Defensores</button><input placeholder="Buscar cria..." /></div>
+          <div class="players-table panel"><div class="table-head"><span>JOGADOR</span><span>POSIÇÃO</span><span>⭐</span><span>GOLS</span><span>ASSIST.</span><span>JOGOS</span><span></span></div><div id="playersList"></div></div>
+        </section>
+
+        <section class="page" id="finance">
+          <div class="hero-line"><div><p class="eyebrow">TRANSPARÊNCIA TOTAL</p><h1>O caixa da <em>resenha</em></h1><p class="subhead">Tudo que entra e sai, sem caô.</p></div><button class="primary-btn admin-only" id="newTransaction">+ Lançar movimentação</button></div>
+          <div class="finance-summary"><div><span>SALDO EM CAIXA</span><b id="balanceValue">R$ 0,00</b><small>Aguardando lançamentos</small></div><div><span>ENTRADAS · MÊS ATUAL</span><b class="green-text" id="incomeValue">R$ 0,00</b><small>Nenhuma entrada registrada</small></div><div><span>SAÍDAS · MÊS ATUAL</span><b class="red-text" id="expenseValue">R$ 0,00</b><small>Nenhuma saída registrada</small></div></div>
+          <div class="panel transactions"><div class="panel-title"><div><p class="eyebrow">EXTRATO</p><h2>Movimentações recentes</h2></div><button class="text-btn">Ver completo →</button></div><div id="transactions"></div></div>
+        </section>
+
+        <section class="page" id="rules">
+          <div class="hero-line"><div><p class="eyebrow">COMBINADOS DA CASA</p><h1>Regras da <em>pelada</em></h1><p class="subhead">Pra todo mundo curtir o jogo do jeito certo.</p></div><button class="primary-btn admin-only" id="addRule">+ Criar regra</button></div>
+          <div class="rules-list" id="rulesList"></div>
+        </section>
+      </main>
+    </div>
+    <div class="modal-backdrop" id="modal"><div class="modal"><button class="close-modal" id="closeModal">×</button><p class="eyebrow">ÁREA DO ADMIN</p><h2 id="modalTitle">Adicionar jogador</h2><div id="modalBody"></div></div></div>
+    <div class="modal-backdrop" id="authModal"><div class="modal auth-modal"><button class="close-modal" id="closeAuthModal">×</button><p class="eyebrow" id="authEyebrow">BEM-VINDO À RESENHA</p><h2 id="authTitle">Entrar</h2><p class="auth-copy" id="authCopy">Acesse sua conta para acompanhar a pelada.</p><div class="auth-tabs"><button class="auth-tab active" data-auth="login">Entrar</button><button class="auth-tab" data-auth="signup">Criar conta</button></div><form class="form-grid" id="authForm"><input id="authName" placeholder="Seu nome" autocomplete="name"><select id="authPosition" hidden><option value="">Posição no society</option><option>Goleiro</option><option>Fixo</option><option>Ala direito</option><option>Ala esquerdo</option><option>Meia</option><option>Pivô</option><option>Atacante</option></select><select id="authFoot" hidden><option value="">Pé dominante</option><option>Canhoto</option><option>Destro</option><option>Ambidestro</option></select><textarea id="authPhrase" placeholder="Sua frase motivacional" hidden></textarea><input id="authPassword" type="password" placeholder="Sua senha" autocomplete="current-password" required><p class="form-error" id="authError"></p><button class="primary-btn" type="submit" id="authSubmit">Entrar</button></form></div></div>
+    <script src="app.js"></script>
+  </body>
+</html>
