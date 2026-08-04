@@ -18,6 +18,9 @@
 }
 
 .edit-stats { color: #4c981c; }
+.toggle-attendance { color: #5b43ca; }
+.toggle-attendance.is-confirmed { border-color: #8acb1d; background: #effbd9; color: #38770f; }
+.player-confirmed { box-shadow: inset 3px 0 #8acb1d; }
 .delete-player { color: #c84d42; }
 .field-label { margin-bottom: -3px; color: #55525a; font: 700 11px 'DM Sans'; }
 

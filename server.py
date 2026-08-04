@@ -128,12 +128,13 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/attendance":
             conn = db()
             count = conn.execute("SELECT COUNT(*) FROM attendance WHERE confirmed=1").fetchone()[0]
+            confirmed_names = [row[0] for row in conn.execute("SELECT player_name FROM attendance WHERE confirmed=1").fetchall()]
             user = self.session()
             mine = False
             if user and user.get("role") == "user":
                 mine = bool(conn.execute("SELECT 1 FROM attendance WHERE player_name=? AND confirmed=1", (user["name"],)).fetchone())
             conn.close()
-            return self.send_json(200, {"confirmed": count, "mine": mine})
+            return self.send_json(200, {"confirmed": count, "mine": mine, "confirmed_names": confirmed_names})
         return super().do_GET()
 
     def do_POST(self):
@@ -247,6 +248,23 @@ class AppHandler(SimpleHTTPRequestHandler):
             conn.execute("INSERT INTO attendance(player_name,confirmed,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(player_name) DO UPDATE SET confirmed=excluded.confirmed, updated_at=CURRENT_TIMESTAMP", (user["name"], int(confirmed)))
             conn.commit(); conn.close()
             return self.send_json(200, {"message": "Presença atualizada.", "confirmed": confirmed})
+
+        if self.path == "/api/attendance/admin":
+            user = self.session()
+            if not user or user.get("role") != "admin":
+                return self.send_json(403, {"error": "Apenas o administrador pode confirmar jogadores."})
+            data = self.body()
+            player_name = data.get("player_name", "").strip()
+            confirmed = bool(data.get("confirmed"))
+            conn = db()
+            player = conn.execute("SELECT name FROM players WHERE name=? COLLATE NOCASE", (player_name,)).fetchone()
+            if not player:
+                conn.close()
+                return self.send_json(404, {"error": "Jogador não encontrado."})
+            player_name = player["name"]
+            conn.execute("INSERT INTO attendance(player_name,confirmed,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(player_name) DO UPDATE SET confirmed=excluded.confirmed, updated_at=CURRENT_TIMESTAMP", (player_name, int(confirmed)))
+            conn.commit(); conn.close()
+            return self.send_json(200, {"message": "Presença do jogador atualizada.", "confirmed": confirmed})
 
         if self.path == "/api/logout":
             cookie = cookies.SimpleCookie(self.headers.get("Cookie"))
