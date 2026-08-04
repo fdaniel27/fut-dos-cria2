@@ -207,6 +207,24 @@ class AppHandler(SimpleHTTPRequestHandler):
             conn.commit(); conn.close()
             return self.send_json(201, {"message": "Jogador cadastrado."})
 
+        parts = self.path.strip("/").split("/")
+        if len(parts) == 4 and parts[:2] == ["api", "players"] and parts[3] == "goals":
+            if not self.session() or self.session().get("role") != "admin":
+                return self.send_json(403, {"error": "Apenas o administrador pode alterar os gols."})
+            try:
+                player_id = int(parts[2])
+                goals = int(self.body().get("goals", -1))
+            except (TypeError, ValueError):
+                return self.send_json(400, {"error": "Informe uma quantidade de gols válida."})
+            if goals < 0:
+                return self.send_json(400, {"error": "A quantidade de gols não pode ser negativa."})
+            conn = db()
+            cursor = conn.execute("UPDATE players SET goals=? WHERE id=?", (goals, player_id))
+            conn.commit(); conn.close()
+            if not cursor.rowcount:
+                return self.send_json(404, {"error": "Jogador não encontrado."})
+            return self.send_json(200, {"message": "Quantidade de gols atualizada."})
+
         if self.path == "/api/rules":
             if not self.session() or self.session().get("role") != "admin":
                 return self.send_json(403, {"error": "Apenas o administrador pode criar regras."})
