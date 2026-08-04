@@ -216,16 +216,17 @@ class AppHandler(SimpleHTTPRequestHandler):
                 data = self.body()
                 goals = int(data.get("goals", -1))
                 assists = int(data.get("assists", -1))
+                stars = int(data.get("stars", 0))
             except (TypeError, ValueError):
-                return self.send_json(400, {"error": "Informe quantidades válidas de gols e assistências."})
-            if goals < 0 or assists < 0:
-                return self.send_json(400, {"error": "Gols e assistências não podem ser negativos."})
+                return self.send_json(400, {"error": "Informe estrelas, gols e assistências válidos."})
+            if not 1 <= stars <= 5 or goals < 0 or assists < 0:
+                return self.send_json(400, {"error": "Use de 1 a 5 estrelas e valores não negativos para gols e assistências."})
             conn = db()
-            cursor = conn.execute("UPDATE players SET goals=?, assists=? WHERE id=?", (goals, assists, player_id))
+            cursor = conn.execute("UPDATE players SET stars=?, goals=?, assists=? WHERE id=?", (stars, goals, assists, player_id))
             conn.commit(); conn.close()
             if not cursor.rowcount:
                 return self.send_json(404, {"error": "Jogador não encontrado."})
-            return self.send_json(200, {"message": "Estatísticas atualizadas."})
+            return self.send_json(200, {"message": "Estrelas e estatísticas atualizadas."})
 
         if self.path == "/api/rules":
             if not self.session() or self.session().get("role") != "admin":
