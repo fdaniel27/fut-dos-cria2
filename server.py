@@ -252,4 +252,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     db().close()
     print("Fut dos Cria em http://localhost:8000")
-    ThreadingHTTPServer(("127.0.0.1", 8000), AppHandler).serve_forever()
+    import os
+
+PORT = int(os.environ.get("PORT", 8000))
+ThreadingHTTPServer(("0.0.0.0", PORT), AppHandler).serve_forever()
