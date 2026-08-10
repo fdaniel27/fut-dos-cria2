@@ -42,8 +42,11 @@ def db():
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
+    if "role" not in {row[1] for row in conn.execute("PRAGMA table_info(users)")}:
+        conn.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
     conn.execute("""CREATE TABLE IF NOT EXISTS finance_transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description TEXT NOT NULL,
@@ -109,6 +112,8 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/session":
             return self.send_json(200, {"user": self.session()})
         if self.path == "/api/finance":
+            if self.session() and self.session().get("role") == "diarist":
+                return self.send_json(403, {"error": "Diaristas não têm acesso ao financeiro."})
             conn = db()
             rows = [dict(row) for row in conn.execute("SELECT * FROM finance_transactions ORDER BY id DESC").fetchall()]
             conn.close()
@@ -131,7 +136,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             confirmed_names = [row[0] for row in conn.execute("SELECT player_name FROM attendance WHERE confirmed=1").fetchall()]
             user = self.session()
             mine = False
-            if user and user.get("role") == "user":
+            if user and user.get("role") in ("user", "diarist"):
                 mine = bool(conn.execute("SELECT 1 FROM attendance WHERE player_name=? AND confirmed=1", (user["name"],)).fetchone())
             conn.close()
             return self.send_json(200, {"confirmed": count, "mine": mine, "confirmed_names": confirmed_names})
@@ -141,20 +146,23 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/signup":
             data = self.body()
             name, password = data.get("name", "").strip(), data.get("password", "")
+            account_type = "diarist" if data.get("account_type") == "diarist" else "user"
             position, foot, phrase = data.get("position", "").strip(), data.get("foot", "").strip(), data.get("phrase", "").strip()
             valid_positions = {"Goleiro", "Fixo", "Ala direito", "Ala esquerdo", "Meia", "Pivô", "Atacante"}
-            if not name or len(password) < 6 or position not in valid_positions or foot not in {"Canhoto", "Destro", "Ambidestro"} or not phrase:
-                return self.send_json(400, {"error": "Preencha nome, senha, posição, pé dominante e frase motivacional."})
+            if not name or len(password) < 6:
+                return self.send_json(400, {"error": "Preencha nome e uma senha de ao menos 6 caracteres."})
+            if account_type == "user" and (position not in valid_positions or foot not in {"Canhoto", "Destro", "Ambidestro"} or not phrase):
+                return self.send_json(400, {"error": "Preencha posição, pé dominante e frase motivacional."})
             try:
                 conn = db()
                 if conn.execute("SELECT 1 FROM users WHERE name = ? COLLATE NOCASE", (name,)).fetchone():
                     conn.close()
                     return self.send_json(409, {"error": "Este nome já está cadastrado."})
                 internal_email = f"{secrets.token_urlsafe(12)}@futdoscria.local"
-                conn.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)", (name, internal_email, password_hash(password)))
-                conn.execute("INSERT INTO players(name,position,foot,stars,phrase) VALUES(?,?,?,?,?)", (name, position, foot, 3, phrase))
-                conn.commit()
-                conn.close()
+                conn.execute("INSERT INTO users(name,email,password_hash,role) VALUES(?,?,?,?)", (name, internal_email, password_hash(password), account_type))
+                if account_type == "user":
+                    conn.execute("INSERT INTO players(name,position,foot,stars,phrase) VALUES(?,?,?,?,?)", (name, position, foot, 3, phrase))
+                conn.commit(); conn.close()
             except sqlite3.IntegrityError:
                 return self.send_json(409, {"error": "Não foi possível criar este cadastro."})
             return self.send_json(201, {"message": "Cadastro realizado. Agora entre com sua conta."})
@@ -168,11 +176,11 @@ class AppHandler(SimpleHTTPRequestHandler):
             else:
                 name, password = data.get("name", "").strip(), data.get("password", "")
                 conn = db()
-                row = conn.execute("SELECT name, password_hash FROM users WHERE name=? COLLATE NOCASE", (name,)).fetchone()
+                row = conn.execute("SELECT name, password_hash, role FROM users WHERE name=? COLLATE NOCASE", (name,)).fetchone()
                 conn.close()
                 if not row or row["password_hash"] != password_hash(password):
                     return self.send_json(401, {"error": "Nome ou senha incorretos."})
-                user = {"name": row["name"], "role": "user"}
+                user = {"name": row["name"], "role": row["role"]}
             token = secrets.token_urlsafe(32)
             SESSIONS[token] = user
             return self.send_json(200, {"user": user}, token)
@@ -241,7 +249,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         if self.path == "/api/attendance":
             user = self.session()
-            if not user or user.get("role") != "user":
+            if not user or user.get("role") not in ("user", "diarist"):
                 return self.send_json(403, {"error": "Entre com sua conta para confirmar presença."})
             confirmed = bool(self.body().get("confirmed"))
             conn = db()
