@@ -52,8 +52,9 @@ const authModal=document.querySelector('#authModal'), authName=document.querySel
 function syncAccountFields(){const showProfile=authMode==='signup'&&authAccountType.value==='user';[authPosition,authFoot,authPhrase,authStars].forEach(field=>{field.hidden=!showProfile;field.style.display=showProfile?'':'none'});authPosition.required=showProfile;authFoot.required=showProfile;authPhrase.required=showProfile;authStars.required=showProfile}
 function openAuth(admin=false){requestingAdmin=admin;authMode='login';authModal.classList.add('open');authModal.querySelector('.modal').classList.toggle('auth-admin',admin);document.querySelector('#authEyebrow').textContent=admin?'ÁREA RESTRITA':'BEM-VINDO À RESENHA';document.querySelector('#authTitle').textContent=admin?'Entrar como administrador':'Entrar';document.querySelector('#authCopy').textContent=admin?'Informe a senha de administrador para liberar o painel.':'Escolha se você é mensal ou diarista e entre com sua conta.';authName.hidden=admin;authName.required=!admin;authAccountType.hidden=admin;authPosition.hidden=true;authFoot.hidden=true;authPhrase.hidden=true;document.querySelector('#authSubmit').textContent='Entrar';authError.textContent='';authPassword.value='';}
 function closeAuth(){authModal.classList.remove('open')}
-function updateUser(user){currentUser=user;document.body.classList.toggle('diarist-mode',user?.role==='diarist');document.querySelector('#loginButton').textContent=user?'Olá, '+user.name.split(' ')[0]:'Entrar';document.querySelector('#userAvatar').textContent=user?user.name.slice(0,2).toUpperCase():'?';}
+function updateUser(user){currentUser=user;document.body.classList.toggle('diarist-mode',user?.role==='diarist');document.body.classList.toggle('player-mode',user?.role==='user');document.querySelector('#loginButton').textContent=user?'Olá, '+user.name.split(' ')[0]:'Entrar';document.querySelector('#userAvatar').textContent=user?user.name.slice(0,2).toUpperCase():'?';}
 document.querySelector('#loginButton').addEventListener('click',()=>currentUser?fetch('/api/logout',{method:'POST'}).then(()=>{document.body.classList.remove('admin-mode');updateUser(null);loadAttendance()}):openAuth());
+document.querySelector('[data-page="profile"]').addEventListener('click',()=>{if(currentUser?.role==='user')loadProfile()});
 document.querySelector('#closeAuthModal').addEventListener('click',closeAuth);
 authModal.addEventListener('click',e=>{if(e.target===authModal)closeAuth()});
 document.querySelectorAll('.auth-tab').forEach(button=>button.addEventListener('click',()=>{requestingAdmin=false;authMode=button.dataset.auth;document.querySelectorAll('.auth-tab').forEach(x=>x.classList.toggle('active',x===button));const creating=authMode==='signup';if(creating){authAccountType.value='diarist';authAccountType.hidden=true}else authAccountType.hidden=false;document.querySelector('#authTitle').textContent=creating?'Cadastro de diarista':'Entrar';document.querySelector('#authCopy').textContent=creating?'Cadastre-se como diarista para entrar na lista de espera. Contas mensais são criadas pela administração.':'Informe se você é mensal ou diarista antes de entrar.';document.querySelector('#authSubmit').textContent=creating?'Criar conta de diarista':'Entrar';authError.textContent='';syncAccountFields()}));
@@ -81,3 +82,32 @@ const playerFilterState={category:"all",search:""};
 function applyPlayerFilters(){const groups={attack:["Atacante","Pivô"],midfield:["Meia","Ala direito","Ala esquerdo"],defense:["Fixo","Zagueiro","Goleiro"]};document.querySelectorAll("#playersList .player-row").forEach(row=>{const position=row.querySelector("[data-label=\"Posição\"]")?.textContent.trim()||"";const name=row.querySelector(".player-info b")?.textContent.toLocaleLowerCase()||"";const categoryMatches=playerFilterState.category==="all"||(groups[playerFilterState.category]||[]).includes(position);row.hidden=!(categoryMatches&&name.includes(playerFilterState.search))});const rows=[...document.querySelectorAll("#playersList .player-row")];let empty=document.querySelector("#playersList .filter-empty");if(rows.length&&!rows.some(row=>!row.hidden)){if(!empty){empty=document.createElement("p");empty.className="empty-state filter-empty";empty.textContent="Nenhum jogador encontrado para este filtro.";document.querySelector("#playersList").append(empty)}}else if(empty)empty.remove()}
 document.querySelectorAll(".filter[data-filter]").forEach(button=>button.addEventListener("click",()=>{playerFilterState.category=button.dataset.filter;document.querySelectorAll(".filter[data-filter]").forEach(item=>item.classList.toggle("active",item===button));applyPlayerFilters()}));
 document.querySelector("#playerSearch")?.addEventListener("input",event=>{playerFilterState.search=event.target.value.trim().toLocaleLowerCase();applyPlayerFilters()});
+
+
+let profilePhotoUrl='';
+function profilePhotoPreview(url,name='?'){const image=document.querySelector('#profilePhotoPreview');image.src=url||'';image.alt='Foto de perfil de '+name;image.style.display=url?'block':'none';}
+async function loadProfile(){
+ try{
+  const response=await fetch('/api/profile');const data=await response.json();
+  if(!response.ok)return;
+  const player=data.player;profilePhotoUrl=player.photo_url||'';
+  document.querySelector('#profileName').value=player.name||'';
+  document.querySelector('#profilePosition').value=player.position||'Atacante';
+  document.querySelector('#profileFoot').value=player.foot||'Destro';
+  document.querySelector('#profilePhrase').value=player.phrase||'';
+  document.querySelector('#profilePassword').value='';document.querySelector('#profileError').textContent='';
+  profilePhotoPreview(profilePhotoUrl,player.name);
+ }catch(error){}
+}
+document.querySelector('#profilePhoto').addEventListener('change',event=>{
+ const file=event.target.files?.[0];if(!file)return;
+ if(file.size>2*1024*1024){document.querySelector('#profileError').textContent='A foto deve ter no máximo 2 MB.';event.target.value='';return}
+ const reader=new FileReader();reader.onload=()=>{profilePhotoUrl=reader.result;profilePhotoPreview(profilePhotoUrl,document.querySelector('#profileName').value)};reader.readAsDataURL(file);
+});
+document.querySelector('#profileForm').addEventListener('submit',async event=>{
+ event.preventDefault();const error=document.querySelector('#profileError');error.textContent='';
+ const payload={name:document.querySelector('#profileName').value,position:document.querySelector('#profilePosition').value,foot:document.querySelector('#profileFoot').value,phrase:document.querySelector('#profilePhrase').value,password:document.querySelector('#profilePassword').value,photo_url:profilePhotoUrl};
+ const response=await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();
+ if(!response.ok){error.textContent=data.error||'Não foi possível salvar seu perfil.';return}
+ updateUser(data.user);await loadPlayers();await loadAttendance();showSuccess('Perfil atualizado','Suas informações foram salvas. As estrelas permanecem sob controle da administração.');
+});

@@ -22,6 +22,7 @@
           <button class="nav-link active" data-page="home"><span>▦</span> Visão geral</button>
           <button class="nav-link" data-page="draw"><span>♜</span> Sorteio semanal</button>
           <button class="nav-link" data-page="players"><span>♙</span> Jogadores</button>
+          <button class="nav-link profile-nav" data-page="profile"><span>◉</span> Meu perfil</button>
           <button class="nav-link finance-nav" data-page="finance"><span>◈</span> Financeiro</button>
           <button class="nav-link" data-page="rules"><span>☷</span> Regras</button>
         </nav>
@@ -59,16 +60,30 @@
         </section>
 
         <section class="page" id="draw">
-          <div class="hero-line"><div><p class="eyebrow">PELADA #23 · 26 JUL</p><h1>Sorteio dos <em>times</em></h1><p class="subhead">Equilíbrio garantido. Agora é só fazer a parte de vocês.</p></div><button class="primary-btn admin-only" id="reroll">Sortear times <b>↻</b></button></div>
+          <div class="hero-line"><div><p class="eyebrow">SORTEIO SEMANAL</p><h1>Sorteio dos <em>times</em></h1><p class="subhead">Equilíbrio garantido. Agora é só fazer a parte de vocês.</p></div><button class="primary-btn admin-only" id="reroll">Sortear times <b>↻</b></button></div>
           <div class="draw-meta"><span><b id="drawConfirmedCount">0</b> confirmados</span><span><b>3</b> times</span><span id="drawVacancyCount">15 vagas restantes</span><span>Clube do Diário · Terças, 22h30</span><span>Rua Professor Souto Maior, 286</span></div>
           <div class="teams-grid" id="teamsGrid"></div>
           <p class="fairness">✦ Times montados buscando equilíbrio entre posição, perna boa e estrelas.</p>
         </section>
 
         <section class="page" id="players">
-          <div class="hero-line"><div><p class="eyebrow">TEMPORADA 2025</p><h1>Os <em>crias</em> do fut</h1><p class="subhead">Estatísticas atualizadas a cada pelada.</p></div><button class="primary-btn admin-only" id="addPlayer">+ Cadastrar jogador</button></div>
+          <div class="hero-line"><div><p class="eyebrow">TEMPORADA 2026</p><h1>Os <em>crias</em> do fut</h1><p class="subhead">Estatísticas atualizadas a cada pelada.</p></div><button class="primary-btn admin-only" id="addPlayer">+ Cadastrar jogador</button></div>
           <div class="filters"><button class="filter active" data-filter="all">Todos</button><button class="filter" data-filter="attack">Atacantes</button><button class="filter" data-filter="midfield">Meias</button><button class="filter" data-filter="defense">Defensores</button><input id="playerSearch" placeholder="Buscar cria..." /></div>
           <div class="players-table panel"><div class="table-head"><span>JOGADOR</span><span>POSIÇÃO</span><span>⭐</span><span>GOLS</span><span>ASSIST.</span><span>JOGOS</span><span>AÇÕES</span></div><div id="playersList"></div></div>
+        </section>
+
+        <section class="page" id="profile">
+          <div class="hero-line"><div><p class="eyebrow">ÁREA DO JOGADOR</p><h1>Meu <em>perfil</em></h1><p class="subhead">Atualize seus dados para a pelada. Seu nível de estrelas é definido pelo administrador.</p></div></div>
+          <div class="panel profile-card"><form class="form-grid" id="profileForm">
+            <div class="profile-photo-control"><img id="profilePhotoPreview" alt="Foto de perfil"><div><b>Foto de perfil</b><small>Imagem de até 2 MB.</small><input id="profilePhoto" type="file" accept="image/*"></div></div>
+            <label class="field-label" for="profileName">Nome</label><input id="profileName" required autocomplete="name">
+            <label class="field-label" for="profilePosition">Posição no society</label><select id="profilePosition" required><option>Goleiro</option><option>Fixo</option><option>Ala direito</option><option>Ala esquerdo</option><option>Meia</option><option>Pivô</option><option>Atacante</option></select>
+            <label class="field-label" for="profileFoot">Pé dominante</label><select id="profileFoot" required><option>Canhoto</option><option>Destro</option><option>Ambidestro</option></select>
+            <label class="field-label" for="profilePhrase">Frase motivacional</label><textarea id="profilePhrase" required></textarea>
+            <label class="field-label" for="profilePassword">Nova senha <small>(opcional)</small></label><input id="profilePassword" type="password" minlength="6" autocomplete="new-password" placeholder="Deixe em branco para manter a senha atual">
+            <p class="profile-stars-lock">⭐ Estrelas: definidas exclusivamente pelo administrador.</p>
+            <p class="form-error" id="profileError"></p><button class="primary-btn" type="submit">Salvar alterações</button>
+          </form></div>
         </section>
 
         <section class="page" id="finance">

@@ -128,6 +128,16 @@ class AppHandler(SimpleHTTPRequestHandler):
             rows = [dict(row) for row in conn.execute("SELECT * FROM players ORDER BY id DESC").fetchall()]
             conn.close()
             return self.send_json(200, {"players": rows})
+        if self.path == "/api/profile":
+            user = self.session()
+            if not user or user.get("role") != "user":
+                return self.send_json(403, {"error": "Apenas mensalistas possuem perfil de jogador."})
+            conn = db()
+            player = conn.execute("SELECT * FROM players WHERE name=? COLLATE NOCASE", (user["name"],)).fetchone()
+            conn.close()
+            if not player:
+                return self.send_json(404, {"error": "Perfil de jogador não encontrado."})
+            return self.send_json(200, {"player": dict(player)})
         if self.path == "/api/rules":
             if self.session() and self.session().get("role") == "diarist":
                 return self.send_json(403, {"error": "Diaristas não têm acesso às regras."})
@@ -254,6 +264,46 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not cursor.rowcount:
                 return self.send_json(404, {"error": "Jogador não encontrado."})
             return self.send_json(200, {"message": "Estrelas e estatísticas atualizadas."})
+
+        if self.path == "/api/profile":
+            user = self.session()
+            if not user or user.get("role") != "user":
+                return self.send_json(403, {"error": "Apenas mensalistas podem alterar o perfil."})
+            data = self.body()
+            name = data.get("name", "").strip()
+            position = data.get("position", "").strip()
+            foot = data.get("foot", "").strip()
+            phrase = data.get("phrase", "").strip()
+            new_password = data.get("password", "")
+            photo_url = data.get("photo_url", "").strip()
+            valid_positions = {"Goleiro", "Fixo", "Ala direito", "Ala esquerdo", "Meia", "Pivô", "Atacante"}
+            if len(name) < 2 or len(name) > 80 or position not in valid_positions or foot not in {"Canhoto", "Destro", "Ambidestro"} or not phrase:
+                return self.send_json(400, {"error": "Preencha nome, posição, pé dominante e frase motivacional."})
+            if new_password and len(new_password) < 6:
+                return self.send_json(400, {"error": "A nova senha precisa ter ao menos 6 caracteres."})
+            if photo_url and (not photo_url.startswith("data:image/") or len(photo_url) > 3_000_000):
+                return self.send_json(400, {"error": "Envie uma imagem válida de até 2 MB."})
+            old_name = user["name"]
+            conn = db()
+            player = conn.execute("SELECT id FROM players WHERE name=? COLLATE NOCASE", (old_name,)).fetchone()
+            if not player:
+                conn.close()
+                return self.send_json(404, {"error": "Perfil de jogador não encontrado."})
+            if name.lower() != old_name.lower() and conn.execute("SELECT 1 FROM users WHERE name=? COLLATE NOCASE", (name,)).fetchone():
+                conn.close()
+                return self.send_json(409, {"error": "Esse nome já está em uso."})
+            if name != old_name:
+                conn.execute("UPDATE users SET name=? WHERE name=? COLLATE NOCASE", (name, old_name))
+                conn.execute("UPDATE attendance SET player_name=? WHERE player_name=? COLLATE NOCASE", (name, old_name))
+            if new_password:
+                conn.execute("UPDATE users SET password_hash=? WHERE name=? COLLATE NOCASE", (password_hash(new_password), name))
+            conn.execute("UPDATE players SET name=?, position=?, foot=?, phrase=?, photo_url=? WHERE id=?", (name, position, foot, phrase, photo_url, player["id"]))
+            conn.commit(); conn.close()
+            for session in SESSIONS.values():
+                if session.get("role") == "user" and session.get("name", "").lower() == old_name.lower():
+                    session["name"] = name
+            user["name"] = name
+            return self.send_json(200, {"message": "Perfil atualizado.", "user": user})
 
         if self.path == "/api/rules":
             if not self.session() or self.session().get("role") != "admin":
