@@ -27,7 +27,21 @@ document.querySelector('#addPlayer').addEventListener('click',()=>openModal('Cad
 document.querySelector('#newTransaction').addEventListener('click',()=>openModal('Lançar movimentação',`<form class="form-grid" id="financeForm"><input id="financeDescription" placeholder="Descrição" required><input id="financeAmount" type="number" min="0.01" step="0.01" placeholder="Valor (R$)" required><select id="financeKind"><option value="income">Entrada</option><option value="expense">Saída</option></select><p class="form-error" id="financeError"></p><button class="primary-btn">Salvar lançamento</button></form>`));
 document.querySelector('#addRule').addEventListener('click',()=>openModal('Criar regra',`<form class="form-grid" id="ruleForm"><input id="ruleTitle" placeholder="Título da regra" required><textarea id="ruleContent" placeholder="Descreva a regra..." required></textarea><p class="form-error" id="ruleError"></p><button class="primary-btn">Salvar regra</button></form>`));
 document.addEventListener('click',e=>{const button=e.target.closest('.edit-stats');if(!button)return;openModal(`Editar ${button.dataset.name}`,`<form class="form-grid" id="statsForm" data-player-id="${button.dataset.id}"><label class="field-label" for="playerStars">Nível do jogador</label><select id="playerStars" required><option value="1" ${button.dataset.stars==='1'?'selected':''}>⭐ — 1 estrela</option><option value="2" ${button.dataset.stars==='2'?'selected':''}>⭐⭐ — 2 estrelas</option><option value="3" ${button.dataset.stars==='3'?'selected':''}>⭐⭐⭐ — 3 estrelas</option><option value="4" ${button.dataset.stars==='4'?'selected':''}>⭐⭐⭐⭐ — 4 estrelas</option><option value="5" ${button.dataset.stars==='5'?'selected':''}>⭐⭐⭐⭐⭐ — 5 estrelas</option></select><label class="field-label" for="playerGoals">Quantidade de gols</label><input id="playerGoals" type="number" min="0" step="1" inputmode="numeric" value="${button.dataset.goals}" required><label class="field-label" for="playerAssists">Quantidade de assistências</label><input id="playerAssists" type="number" min="0" step="1" inputmode="numeric" value="${button.dataset.assists}" required><p class="form-error" id="statsError"></p><button class="primary-btn">Salvar alterações</button></form>`)});
-document.querySelector('#reroll').addEventListener('click',()=>{teams.forEach(t=>t.sort(()=>Math.random()-.5));render()});
+function sortearTimes(){
+ const confirmados=[...attendanceNames].map(nome=>players.find(player=>player.name===nome)||{name:nome,pos:'Diarista',foot:'—',phrase:'Jogador diarista',stars:3,face:'⚽',color:'#dce5c3'});
+ if(!confirmados.length){showSuccess('Ainda não há confirmados','Confirme jogadores na lista antes de realizar o sorteio.');return}
+ const embaralhados=confirmados.sort(()=>Math.random()-.5).sort((a,b)=>Number(b.stars)-Number(a.stars));
+ teams=[[],[],[]];
+ embaralhados.forEach(jogador=>{
+   const vagas=teams.filter(time=>time.length<teamSize);
+   const menorForca=Math.min(...vagas.map(time=>time.reduce((total,item)=>total+Number(item.stars||3),0)));
+   const candidatos=vagas.filter(time=>time.reduce((total,item)=>total+Number(item.stars||3),0)===menorForca);
+   candidatos[Math.floor(Math.random()*candidatos.length)].push(jogador);
+ });
+ render();
+ showSuccess('Times sorteados',`${confirmados.length} jogador${confirmados.length===1?'':'es'} distribuído${confirmados.length===1?'':'s'} entre os Times 1, 2 e 3.`);
+}
+document.querySelector('#reroll').addEventListener('click',sortearTimes);
 let currentUser=null, authMode='login', requestingAdmin=false;
 const successModal=document.querySelector('#successModal');
 function showSuccess(title,message){document.querySelector('#successTitle').textContent=title;document.querySelector('#successMessage').textContent=message;successModal.classList.add('open')}
