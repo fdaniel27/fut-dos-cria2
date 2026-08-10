@@ -59,6 +59,8 @@ def db():
         foot TEXT NOT NULL, stars INTEGER NOT NULL, phrase TEXT NOT NULL DEFAULT '', goals INTEGER NOT NULL DEFAULT 0,
         assists INTEGER NOT NULL DEFAULT 0, games INTEGER NOT NULL DEFAULT 0
     )""")
+    if "photo_url" not in {row[1] for row in conn.execute("PRAGMA table_info(players)")}:
+        conn.execute("ALTER TABLE players ADD COLUMN photo_url TEXT NOT NULL DEFAULT ''")
     conn.execute("""CREATE TABLE IF NOT EXISTS rules (
         id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content TEXT NOT NULL
     )""")
@@ -223,9 +225,14 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not name or not position or not foot or not 1 <= stars <= 5:
                 return self.send_json(400, {"error": "Preencha nome, posição, perna boa e estrelas."})
             conn = db()
-            conn.execute("INSERT INTO players(name,position,foot,stars,phrase) VALUES(?,?,?,?,?)", (name, position, foot, stars, data.get("phrase", "").strip()))
+            password = data.get("password", "")
+            if password:
+                if len(password) < 6: conn.close(); return self.send_json(400, {"error": "A senha precisa ter ao menos 6 caracteres."})
+                if conn.execute("SELECT 1 FROM users WHERE name=? COLLATE NOCASE", (name,)).fetchone(): conn.close(); return self.send_json(409, {"error": "Já existe uma conta com este nome."})
+                conn.execute("INSERT INTO users(name,email,password_hash,role) VALUES(?,?,?,?)", (name, f"{secrets.token_urlsafe(12)}@futdoscria.local", password_hash(password), "user"))
+            conn.execute("INSERT INTO players(name,position,foot,stars,phrase,photo_url) VALUES(?,?,?,?,?,?)", (name, position, foot, stars, data.get("phrase", "").strip(), data.get("photo_url", "").strip()))
             conn.commit(); conn.close()
-            return self.send_json(201, {"message": "Jogador cadastrado."})
+            return self.send_json(201, {"message": "Jogador e conta cadastrados." if password else "Jogador cadastrado."})
 
         parts = self.path.strip("/").split("/")
         if len(parts) == 4 and parts[:2] == ["api", "players"] and parts[3] == "stats":
