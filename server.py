@@ -126,6 +126,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             conn.close()
             return self.send_json(200, {"players": rows})
         if self.path == "/api/rules":
+            if self.session() and self.session().get("role") == "diarist":
+                return self.send_json(403, {"error": "Diaristas não têm acesso às regras."})
             conn = db()
             rows = [dict(row) for row in conn.execute("SELECT * FROM rules ORDER BY id").fetchall()]
             conn.close()

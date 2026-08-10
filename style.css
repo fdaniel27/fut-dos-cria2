@@ -4,3 +4,5 @@
 .diarist-mode .finance-nav,.diarist-mode #finance{display:none!important}
 
 .success-modal{text-align:center;max-width:390px}.success-icon{width:56px;height:56px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;background:var(--lime);font:900 30px 'DM Sans'}.success-modal h2{margin-bottom:8px}.success-modal p:not(.eyebrow){color:#77757c;font-size:13px;line-height:1.5;margin:0 auto 20px;max-width:280px}.success-modal .primary-btn{width:100%}
+
+.diarist-mode .nav-link[data-page='draw'],.diarist-mode .nav-link[data-page='finance'],.diarist-mode .nav-link[data-page='rules'],.diarist-mode [data-go='draw'],.diarist-mode #draw,.diarist-mode #finance,.diarist-mode #rules{display:none!important}
