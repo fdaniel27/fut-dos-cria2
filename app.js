@@ -52,3 +52,8 @@ loadFinance();
 loadPlayers();
 loadRules();
 loadAttendance();
+
+const playerFilterState={category:"all",search:""};
+function applyPlayerFilters(){const groups={attack:["Atacante","Pivô"],midfield:["Meia","Ala direito","Ala esquerdo"],defense:["Fixo","Zagueiro","Goleiro"]};document.querySelectorAll("#playersList .player-row").forEach(row=>{const position=row.querySelector("[data-label=\"Posição\"]")?.textContent.trim()||"";const name=row.querySelector(".player-info b")?.textContent.toLocaleLowerCase()||"";const categoryMatches=playerFilterState.category==="all"||(groups[playerFilterState.category]||[]).includes(position);row.hidden=!(categoryMatches&&name.includes(playerFilterState.search))});const rows=[...document.querySelectorAll("#playersList .player-row")];let empty=document.querySelector("#playersList .filter-empty");if(rows.length&&!rows.some(row=>!row.hidden)){if(!empty){empty=document.createElement("p");empty.className="empty-state filter-empty";empty.textContent="Nenhum jogador encontrado para este filtro.";document.querySelector("#playersList").append(empty)}}else if(empty)empty.remove()}
+document.querySelectorAll(".filter[data-filter]").forEach(button=>button.addEventListener("click",()=>{playerFilterState.category=button.dataset.filter;document.querySelectorAll(".filter[data-filter]").forEach(item=>item.classList.toggle("active",item===button));applyPlayerFilters()}));
+document.querySelector("#playerSearch")?.addEventListener("input",event=>{playerFilterState.search=event.target.value.trim().toLocaleLowerCase();applyPlayerFilters()});
