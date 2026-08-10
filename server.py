@@ -62,6 +62,7 @@ def db():
     conn.execute("""CREATE TABLE IF NOT EXISTS rules (
         id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content TEXT NOT NULL
     )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS waitlist (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS attendance (
         player_name TEXT PRIMARY KEY,
         confirmed INTEGER NOT NULL DEFAULT 0,
@@ -132,6 +133,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             rows = [dict(row) for row in conn.execute("SELECT * FROM rules ORDER BY id").fetchall()]
             conn.close()
             return self.send_json(200, {"rules": rows})
+        if self.path == "/api/waitlist":
+            if not self.session() or self.session().get("role") != "user": return self.send_json(403, {"error":"Apenas mensalistas acessam a lista de espera."})
+            conn=db(); rows=[dict(row) for row in conn.execute("SELECT * FROM waitlist ORDER BY id").fetchall()]; conn.close(); return self.send_json(200, {"waitlist":rows})
         if self.path == "/api/attendance":
             conn = db()
             count = conn.execute("SELECT COUNT(*) FROM attendance WHERE confirmed=1").fetchone()[0]
@@ -150,6 +154,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             name, password = data.get("name", "").strip(), data.get("password", "")
             account_type = "diarist" if data.get("account_type") == "diarist" else "user"
             position, foot, phrase = data.get("position", "").strip(), data.get("foot", "").strip(), data.get("phrase", "").strip()
+            stars = int(data.get("stars", 3) or 3)
             valid_positions = {"Goleiro", "Fixo", "Ala direito", "Ala esquerdo", "Meia", "Pivô", "Atacante"}
             if not name or len(password) < 6:
                 return self.send_json(400, {"error": "Preencha nome e uma senha de ao menos 6 caracteres."})
@@ -163,7 +168,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 internal_email = f"{secrets.token_urlsafe(12)}@futdoscria.local"
                 conn.execute("INSERT INTO users(name,email,password_hash,role) VALUES(?,?,?,?)", (name, internal_email, password_hash(password), account_type))
                 if account_type == "user":
-                    conn.execute("INSERT INTO players(name,position,foot,stars,phrase) VALUES(?,?,?,?,?)", (name, position, foot, 3, phrase))
+                    conn.execute("INSERT INTO players(name,position,foot,stars,phrase) VALUES(?,?,?,?,?)", (name, position, foot, stars, phrase))
                 conn.commit(); conn.close()
             except sqlite3.IntegrityError:
                 return self.send_json(409, {"error": "Não foi possível criar este cadastro."})
@@ -252,6 +257,11 @@ class AppHandler(SimpleHTTPRequestHandler):
             conn = db(); conn.execute("INSERT INTO rules(title,content) VALUES(?,?)", (title, content)); conn.commit(); conn.close()
             return self.send_json(201, {"message": "Regra criada."})
 
+        if self.path == "/api/waitlist":
+            if not self.session() or self.session().get("role") != "user": return self.send_json(403, {"error":"Apenas mensalistas podem adicionar diaristas."})
+            name=self.body().get("name","").strip()
+            if not name: return self.send_json(400, {"error":"Informe o nome."})
+            conn=db(); conn.execute("INSERT INTO waitlist(name) VALUES(?)",(name,)); conn.commit(); conn.close(); return self.send_json(201, {"message":"Diarista adicionado à lista de espera."})
         if self.path == "/api/attendance":
             user = self.session()
             if not user or user.get("role") not in ("user", "diarist"):
