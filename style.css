@@ -8,3 +8,5 @@
 .diarist-mode .nav-link[data-page='draw'],.diarist-mode .nav-link[data-page='finance'],.diarist-mode .nav-link[data-page='rules'],.diarist-mode [data-go='draw'],.diarist-mode #draw,.diarist-mode #finance,.diarist-mode #rules{display:none!important}
 
 .presence-actions{display:flex;flex-direction:column;gap:7px;align-items:end}.absence-warning{display:none;color:#9b5b25;font-size:10px}.presence-card:has(#absenceButton:hover) .absence-warning{display:block}
+
+.absence-btn{border:1px solid #e8a16f;background:#fff4ed;color:#b24f21;border-radius:7px;padding:10px 14px;font:700 12px 'DM Sans';cursor:pointer;position:relative;z-index:2}.absence-btn:hover{background:#ffe6d7}
