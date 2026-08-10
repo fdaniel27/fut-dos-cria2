@@ -180,6 +180,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 conn.close()
                 if not row or row["password_hash"] != password_hash(password):
                     return self.send_json(401, {"error": "Nome ou senha incorretos."})
+                requested_role = data.get("account_type")
+                if requested_role and requested_role != row["role"]:
+                    return self.send_json(403, {"error": "O tipo de conta selecionado não corresponde a este cadastro."})
                 user = {"name": row["name"], "role": row["role"]}
             token = secrets.token_urlsafe(32)
             SESSIONS[token] = user
