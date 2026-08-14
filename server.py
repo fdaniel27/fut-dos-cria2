@@ -59,8 +59,11 @@ def db():
         foot TEXT NOT NULL, stars INTEGER NOT NULL, phrase TEXT NOT NULL DEFAULT '', goals INTEGER NOT NULL DEFAULT 0,
         assists INTEGER NOT NULL DEFAULT 0, games INTEGER NOT NULL DEFAULT 0
     )""")
-    if "photo_url" not in {row[1] for row in conn.execute("PRAGMA table_info(players)")}:
+    player_columns = {row[1] for row in conn.execute("PRAGMA table_info(players)")}
+    if "photo_url" not in player_columns:
         conn.execute("ALTER TABLE players ADD COLUMN photo_url TEXT NOT NULL DEFAULT ''")
+    if "jersey_number" not in player_columns:
+        conn.execute("ALTER TABLE players ADD COLUMN jersey_number INTEGER")
     conn.execute("""CREATE TABLE IF NOT EXISTS rules (
         id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content TEXT NOT NULL
     )""")
@@ -68,8 +71,21 @@ def db():
     conn.execute("""CREATE TABLE IF NOT EXISTS attendance (
         player_name TEXT PRIMARY KEY,
         confirmed INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        status TEXT NOT NULL DEFAULT 'pendente' CHECK(status IN ('confirmado', 'ausente', 'pendente')),
+        justificativa TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        data_atualizacao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
+    attendance_columns = {row[1] for row in conn.execute("PRAGMA table_info(attendance)")}
+    if "status" not in attendance_columns:
+        conn.execute("ALTER TABLE attendance ADD COLUMN status TEXT NOT NULL DEFAULT 'pendente'")
+    if "justificativa" not in attendance_columns:
+        conn.execute("ALTER TABLE attendance ADD COLUMN justificativa TEXT NOT NULL DEFAULT ''")
+    if "data_atualizacao" not in attendance_columns:
+        conn.execute("ALTER TABLE attendance ADD COLUMN data_atualizacao TEXT")
+    conn.execute("UPDATE attendance SET status=CASE WHEN confirmed=1 THEN 'confirmado' ELSE 'pendente' END WHERE status IS NULL OR status='pendente'")
+    conn.execute("UPDATE attendance SET data_atualizacao=COALESCE(data_atualizacao, updated_at, CURRENT_TIMESTAMP)")
+    conn.commit()
     if conn.execute("SELECT COUNT(*) FROM rules").fetchone()[0] == 0:
         conn.executemany("INSERT INTO rules(title,content) VALUES(?,?)", DEFAULT_RULES)
         conn.commit()
@@ -150,14 +166,14 @@ class AppHandler(SimpleHTTPRequestHandler):
             conn=db(); rows=[dict(row) for row in conn.execute("SELECT * FROM waitlist ORDER BY id").fetchall()]; conn.close(); return self.send_json(200, {"waitlist":rows})
         if self.path == "/api/attendance":
             conn = db()
-            count = conn.execute("SELECT COUNT(*) FROM attendance WHERE confirmed=1").fetchone()[0]
-            confirmed_names = [row[0] for row in conn.execute("SELECT player_name FROM attendance WHERE confirmed=1").fetchall()]
+            rows = [dict(row) for row in conn.execute("SELECT player_name,status,justificativa,data_atualizacao FROM attendance").fetchall()]
+            confirmed_names = [row["player_name"] for row in rows if row["status"] == "confirmado"]
             user = self.session()
-            mine = False
+            mine = {"status": "pendente", "justificativa": ""}
             if user and user.get("role") in ("user", "diarist"):
-                mine = bool(conn.execute("SELECT 1 FROM attendance WHERE player_name=? AND confirmed=1", (user["name"],)).fetchone())
+                mine = next(({"status": row["status"], "justificativa": row["justificativa"]} for row in rows if row["player_name"].lower() == user["name"].lower()), mine)
             conn.close()
-            return self.send_json(200, {"confirmed": count, "mine": mine, "confirmed_names": confirmed_names})
+            return self.send_json(200, {"confirmed": len(confirmed_names), "mine": mine, "confirmed_names": confirmed_names, "records": rows})
         return super().do_GET()
 
     def do_POST(self):
@@ -232,15 +248,17 @@ class AppHandler(SimpleHTTPRequestHandler):
             name, position, foot = data.get("name", "").strip(), data.get("position", "").strip(), data.get("foot", "").strip()
             try: stars = int(data.get("stars", 0))
             except (TypeError, ValueError): stars = 0
-            if not name or not position or not foot or not 1 <= stars <= 5:
-                return self.send_json(400, {"error": "Preencha nome, posição, perna boa e estrelas."})
+            try: jersey_number = int(data.get("jersey_number", 0))
+            except (TypeError, ValueError): jersey_number = 0
+            if not name or not position or not foot or not 1 <= stars <= 5 or not 1 <= jersey_number <= 99:
+                return self.send_json(400, {"error": "Preencha nome, número da camisa, posição, perna boa e estrelas."})
             conn = db()
             password = data.get("password", "")
             if password:
                 if len(password) < 6: conn.close(); return self.send_json(400, {"error": "A senha precisa ter ao menos 6 caracteres."})
                 if conn.execute("SELECT 1 FROM users WHERE name=? COLLATE NOCASE", (name,)).fetchone(): conn.close(); return self.send_json(409, {"error": "Já existe uma conta com este nome."})
                 conn.execute("INSERT INTO users(name,email,password_hash,role) VALUES(?,?,?,?)", (name, f"{secrets.token_urlsafe(12)}@futdoscria.local", password_hash(password), "user"))
-            conn.execute("INSERT INTO players(name,position,foot,stars,phrase,photo_url) VALUES(?,?,?,?,?,?)", (name, position, foot, stars, data.get("phrase", "").strip(), data.get("photo_url", "").strip()))
+            conn.execute("INSERT INTO players(name,position,foot,stars,phrase,photo_url,jersey_number) VALUES(?,?,?,?,?,?,?)", (name, position, foot, stars, data.get("phrase", "").strip(), data.get("photo_url", "").strip(), jersey_number))
             conn.commit(); conn.close()
             return self.send_json(201, {"message": "Jogador e conta cadastrados." if password else "Jogador cadastrado."})
 
@@ -254,12 +272,13 @@ class AppHandler(SimpleHTTPRequestHandler):
                 goals = int(data.get("goals", -1))
                 assists = int(data.get("assists", -1))
                 stars = int(data.get("stars", 0))
+                jersey_number = int(data.get("jersey_number", 0))
             except (TypeError, ValueError):
                 return self.send_json(400, {"error": "Informe estrelas, gols e assistências válidos."})
-            if not 1 <= stars <= 5 or goals < 0 or assists < 0:
-                return self.send_json(400, {"error": "Use de 1 a 5 estrelas e valores não negativos para gols e assistências."})
+            if not 1 <= stars <= 5 or goals < 0 or assists < 0 or not 1 <= jersey_number <= 99:
+                return self.send_json(400, {"error": "Use número de camisa entre 1 e 99, estrelas de 1 a 5 e estatísticas não negativas."})
             conn = db()
-            cursor = conn.execute("UPDATE players SET stars=?, goals=?, assists=? WHERE id=?", (stars, goals, assists, player_id))
+            cursor = conn.execute("UPDATE players SET stars=?, goals=?, assists=?, jersey_number=? WHERE id=?", (stars, goals, assists, jersey_number, player_id))
             conn.commit(); conn.close()
             if not cursor.rowcount:
                 return self.send_json(404, {"error": "Jogador não encontrado."})
@@ -319,32 +338,37 @@ class AppHandler(SimpleHTTPRequestHandler):
             name=self.body().get("name","").strip()
             if not name: return self.send_json(400, {"error":"Informe o nome."})
             conn=db(); conn.execute("INSERT INTO waitlist(name) VALUES(?)",(name,)); conn.commit(); conn.close(); return self.send_json(201, {"message":"Diarista adicionado à lista de espera."})
-        if self.path == "/api/attendance":
+        if self.path in ("/api/attendance", "/api/attendance/admin"):
             user = self.session()
-            if not user or user.get("role") not in ("user", "diarist"):
-                return self.send_json(403, {"error": "Entre com sua conta para confirmar presença."})
-            confirmed = bool(self.body().get("confirmed"))
-            conn = db()
-            conn.execute("INSERT INTO attendance(player_name,confirmed,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(player_name) DO UPDATE SET confirmed=excluded.confirmed, updated_at=CURRENT_TIMESTAMP", (user["name"], int(confirmed)))
-            conn.commit(); conn.close()
-            return self.send_json(200, {"message": "Presença atualizada.", "confirmed": confirmed})
-
-        if self.path == "/api/attendance/admin":
-            user = self.session()
-            if not user or user.get("role") != "admin":
-                return self.send_json(403, {"error": "Apenas o administrador pode confirmar jogadores."})
+            is_admin = self.path == "/api/attendance/admin"
+            if not user or (is_admin and user.get("role") != "admin") or (not is_admin and user.get("role") not in ("user", "diarist")):
+                return self.send_json(403, {"error": "Você não tem permissão para atualizar esta presença."})
             data = self.body()
-            player_name = data.get("player_name", "").strip()
-            confirmed = bool(data.get("confirmed"))
+            status = data.get("status")
+            if status is None:  # compatibilidade com registros enviados pela versão anterior
+                status = "confirmado" if data.get("confirmed") else "ausente"
+            if status not in ("confirmado", "ausente", "pendente"):
+                return self.send_json(400, {"error": "Status de presença inválido."})
+            justification = data.get("justificativa", "").strip()
+            if len(justification) > 500:
+                return self.send_json(400, {"error": "A justificativa pode ter no máximo 500 caracteres."})
+            if status == "confirmado":
+                justification = ""
+            player_name = data.get("player_name", "").strip() if is_admin else user["name"]
             conn = db()
-            player = conn.execute("SELECT name FROM players WHERE name=? COLLATE NOCASE", (player_name,)).fetchone()
-            if not player:
-                conn.close()
-                return self.send_json(404, {"error": "Jogador não encontrado."})
-            player_name = player["name"]
-            conn.execute("INSERT INTO attendance(player_name,confirmed,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(player_name) DO UPDATE SET confirmed=excluded.confirmed, updated_at=CURRENT_TIMESTAMP", (player_name, int(confirmed)))
+            if is_admin:
+                player = conn.execute("SELECT name FROM players WHERE name=? COLLATE NOCASE", (player_name,)).fetchone()
+                if not player:
+                    conn.close()
+                    return self.send_json(404, {"error": "Jogador não encontrado."})
+                player_name = player["name"]
+            conn.execute("""INSERT INTO attendance(player_name,confirmed,status,justificativa,updated_at,data_atualizacao)
+                VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+                ON CONFLICT(player_name) DO UPDATE SET confirmed=excluded.confirmed,status=excluded.status,
+                justificativa=excluded.justificativa,updated_at=CURRENT_TIMESTAMP,data_atualizacao=CURRENT_TIMESTAMP""",
+                (player_name, int(status == "confirmado"), status, justification))
             conn.commit(); conn.close()
-            return self.send_json(200, {"message": "Presença do jogador atualizada.", "confirmed": confirmed})
+            return self.send_json(200, {"message": "Presença atualizada.", "status": status, "justificativa": justification})
 
         if self.path == "/api/logout":
             cookie = cookies.SimpleCookie(self.headers.get("Cookie"))
