@@ -168,8 +168,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             conn=db(); rows=[dict(row) for row in conn.execute("SELECT * FROM waitlist ORDER BY id").fetchall()]; conn.close(); return self.send_json(200, {"waitlist":rows})
         if self.path == "/api/diarists":
             user = self.session()
-            if not user or user.get("role") != "admin":
-                return self.send_json(403, {"error": "Apenas o administrador pode supervisionar diaristas."})
+            is_admin = bool(user and user.get("role") == "admin")
             conn = db()
             rows = [dict(row) for row in conn.execute("""SELECT users.name, COALESCE(attendance.status, 'pendente') AS status,
                 COALESCE(attendance.justificativa, '') AS justificativa, attendance.data_atualizacao,
@@ -179,6 +178,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 ORDER BY CASE WHEN attendance.status='confirmado' THEN 0 ELSE 1 END,
                 attendance.data_atualizacao ASC, users.name COLLATE NOCASE""").fetchall()]
             conn.close()
+            if not is_admin:
+                for row in rows:
+                    row["justificativa"] = ""
             return self.send_json(200, {"diarists": rows})
         if self.path == "/api/attendance":
             conn = db()
@@ -189,7 +191,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             if user and user.get("role") in ("user", "diarist"):
                 mine = next(({"status": row["status"], "justificativa": row["justificativa"]} for row in rows if row["player_name"].lower() == user["name"].lower()), mine)
             conn.close()
-            return self.send_json(200, {"confirmed": len(confirmed_names), "mine": mine, "confirmed_names": confirmed_names, "records": rows})
+            return self.send_json(200, {"confirmed": len(confirmed_names), "mine": mine["status"] == "confirmado", "my_attendance": mine, "confirmed_names": confirmed_names, "records": rows})
         return super().do_GET()
 
     def do_POST(self):
