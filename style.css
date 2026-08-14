@@ -30,3 +30,10 @@
 /* Controles de presença: exclusivos do administrador */
 .player-actions.admin-only{display:none}
 .admin-mode .player-actions.admin-only{display:grid}
+
+
+.attendance-section{margin-top:28px}.attendance-section h2{font:800 25px 'Barlow Condensed';margin:0 0 12px}.absent-section{padding-top:25px;border-top:1px solid var(--line)}.confirmed-player-card.absent{border-left-color:#e1664b}.confirmed-player-card.absent span{color:#c5473b}
+
+/* Botões de presença com o mesmo padrão da ação principal */
+.presence-actions .attendance-action{background:var(--ink);color:#fff;border:0;border-radius:7px;padding:14px 17px;font:700 13px 'DM Sans';min-height:auto}
+.presence-actions .attendance-action:hover,.presence-actions .attendance-action.is-active{background:#2b2b2f;color:#fff}
