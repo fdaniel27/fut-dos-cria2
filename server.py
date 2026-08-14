@@ -83,6 +83,8 @@ def db():
         conn.execute("ALTER TABLE attendance ADD COLUMN justificativa TEXT NOT NULL DEFAULT ''")
     if "data_atualizacao" not in attendance_columns:
         conn.execute("ALTER TABLE attendance ADD COLUMN data_atualizacao TEXT")
+    if "admin_confirmed" not in attendance_columns:
+        conn.execute("ALTER TABLE attendance ADD COLUMN admin_confirmed INTEGER NOT NULL DEFAULT 0")
     conn.execute("UPDATE attendance SET status=CASE WHEN confirmed=1 THEN 'confirmado' ELSE 'pendente' END WHERE status IS NULL OR status='pendente'")
     conn.execute("UPDATE attendance SET data_atualizacao=COALESCE(data_atualizacao, updated_at, CURRENT_TIMESTAMP)")
     conn.commit()
@@ -164,9 +166,23 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/waitlist":
             if not self.session() or self.session().get("role") != "user": return self.send_json(403, {"error":"Apenas mensalistas acessam a lista de espera."})
             conn=db(); rows=[dict(row) for row in conn.execute("SELECT * FROM waitlist ORDER BY id").fetchall()]; conn.close(); return self.send_json(200, {"waitlist":rows})
+        if self.path == "/api/diarists":
+            user = self.session()
+            if not user or user.get("role") != "admin":
+                return self.send_json(403, {"error": "Apenas o administrador pode supervisionar diaristas."})
+            conn = db()
+            rows = [dict(row) for row in conn.execute("""SELECT users.name, COALESCE(attendance.status, 'pendente') AS status,
+                COALESCE(attendance.justificativa, '') AS justificativa, attendance.data_atualizacao,
+                COALESCE(attendance.admin_confirmed, 0) AS admin_confirmed
+                FROM users LEFT JOIN attendance ON attendance.player_name = users.name COLLATE NOCASE
+                WHERE users.role='diarist'
+                ORDER BY CASE WHEN attendance.status='confirmado' THEN 0 ELSE 1 END,
+                attendance.data_atualizacao ASC, users.name COLLATE NOCASE""").fetchall()]
+            conn.close()
+            return self.send_json(200, {"diarists": rows})
         if self.path == "/api/attendance":
             conn = db()
-            rows = [dict(row) for row in conn.execute("SELECT player_name,status,justificativa,data_atualizacao FROM attendance").fetchall()]
+            rows = [dict(row) for row in conn.execute("SELECT player_name,status,justificativa,data_atualizacao,admin_confirmed FROM attendance").fetchall()]
             confirmed_names = [row["player_name"] for row in rows if row["status"] == "confirmado"]
             user = self.session()
             mine = {"status": "pendente", "justificativa": ""}
@@ -271,14 +287,15 @@ class AppHandler(SimpleHTTPRequestHandler):
                 data = self.body()
                 goals = int(data.get("goals", -1))
                 assists = int(data.get("assists", -1))
+                games = int(data.get("games", -1))
                 stars = int(data.get("stars", 0))
                 jersey_number = int(data.get("jersey_number", 0))
             except (TypeError, ValueError):
                 return self.send_json(400, {"error": "Informe estrelas, gols e assistências válidos."})
-            if not 1 <= stars <= 5 or goals < 0 or assists < 0 or not 1 <= jersey_number <= 99:
+            if not 1 <= stars <= 5 or goals < 0 or assists < 0 or games < 0 or not 1 <= jersey_number <= 99:
                 return self.send_json(400, {"error": "Use número de camisa entre 1 e 99, estrelas de 1 a 5 e estatísticas não negativas."})
             conn = db()
-            cursor = conn.execute("UPDATE players SET stars=?, goals=?, assists=?, jersey_number=? WHERE id=?", (stars, goals, assists, jersey_number, player_id))
+            cursor = conn.execute("UPDATE players SET stars=?, goals=?, assists=?, games=?, jersey_number=? WHERE id=?", (stars, goals, assists, games, jersey_number, player_id))
             conn.commit(); conn.close()
             if not cursor.rowcount:
                 return self.send_json(404, {"error": "Jogador não encontrado."})
@@ -362,13 +379,33 @@ class AppHandler(SimpleHTTPRequestHandler):
                     conn.close()
                     return self.send_json(404, {"error": "Jogador não encontrado."})
                 player_name = player["name"]
-            conn.execute("""INSERT INTO attendance(player_name,confirmed,status,justificativa,updated_at,data_atualizacao)
-                VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            supervision = 1 if is_admin or user.get("role") != "diarist" else 0
+            conn.execute("""INSERT INTO attendance(player_name,confirmed,status,justificativa,updated_at,data_atualizacao,admin_confirmed)
+                VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?)
                 ON CONFLICT(player_name) DO UPDATE SET confirmed=excluded.confirmed,status=excluded.status,
-                justificativa=excluded.justificativa,updated_at=CURRENT_TIMESTAMP,data_atualizacao=CURRENT_TIMESTAMP""",
-                (player_name, int(status == "confirmado"), status, justification))
+                justificativa=excluded.justificativa,updated_at=CURRENT_TIMESTAMP,data_atualizacao=CURRENT_TIMESTAMP,
+                admin_confirmed=excluded.admin_confirmed""",
+                (player_name, int(status == "confirmado"), status, justification, supervision))
             conn.commit(); conn.close()
             return self.send_json(200, {"message": "Presença atualizada.", "status": status, "justificativa": justification})
+
+        if self.path == "/api/attendance/admin/approve":
+            user = self.session()
+            if not user or user.get("role") != "admin":
+                return self.send_json(403, {"error": "Apenas o administrador pode aprovar confirmações."})
+            player_name = self.body().get("player_name", "").strip()
+            conn = db()
+            diarist = conn.execute("SELECT name FROM users WHERE name=? COLLATE NOCASE AND role='diarist'", (player_name,)).fetchone()
+            if not diarist:
+                conn.close()
+                return self.send_json(404, {"error": "Diarista não encontrado."})
+            row = conn.execute("SELECT status FROM attendance WHERE player_name=? COLLATE NOCASE", (diarist["name"],)).fetchone()
+            if not row or row["status"] != "confirmado":
+                conn.close()
+                return self.send_json(400, {"error": "O diarista precisa estar confirmado antes da aprovação."})
+            conn.execute("UPDATE attendance SET admin_confirmed=1, data_atualizacao=CURRENT_TIMESTAMP WHERE player_name=? COLLATE NOCASE", (diarist["name"],))
+            conn.commit(); conn.close()
+            return self.send_json(200, {"message": "Confirmação do diarista aprovada."})
 
         if self.path == "/api/logout":
             cookie = cookies.SimpleCookie(self.headers.get("Cookie"))
@@ -395,7 +432,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     db().close()
-    print("Fut dos Cria em http://localhost:8000")
+    print("Barsemlona em http://localhost:8000")
 
 PORT = int(os.environ.get("PORT", 8000))
 ThreadingHTTPServer(("0.0.0.0", PORT), AppHandler).serve_forever()

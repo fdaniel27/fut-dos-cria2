@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fut dos Cria</title>
+    <title>Barsemlona</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,13 +15,14 @@
       <aside class="sidebar">
         <a class="brand" href="#">
           <span class="brand-ball">⚽</span>
-          <span>FUT <b>DOS</b> CRIA</span>
+          <span>BARSEMLONA</span>
         </a>
         <p class="season-label">TEMPORADA 2026</p>
         <nav class="main-nav" id="mainNav">
           <button class="nav-link active" data-page="home"><span>▦</span> Visão geral</button>
           <button class="nav-link" data-page="draw"><span>♜</span> Sorteio semanal</button>
           <button class="nav-link" data-page="players"><span>♙</span> Jogadores</button>
+          <button class="nav-link admin-only" data-page="diarists"><span>☑</span> Diaristas</button>
           <button class="nav-link profile-nav" data-page="profile"><span>◉</span> Meu perfil</button>
           <button class="nav-link finance-nav" data-page="finance"><span>◈</span> Financeiro</button>
           <button class="nav-link" data-page="rules"><span>☷</span> Regras</button>
@@ -35,18 +36,18 @@
       <main class="content">
         <header class="topbar">
           <button class="menu-button" id="menuButton">☰</button>
-          <div class="breadcrumb">FUT DOS CRIA <span>/</span> <b id="breadcrumb">VISÃO GERAL</b></div>
+          <div class="breadcrumb">BARSEMLONA <span>/</span> <b id="breadcrumb">VISÃO GERAL</b></div>
           <div class="top-actions"><span class="online-dot"></span><span class="live-label">AO VIVO</span><button class="login-btn" id="loginButton">Entrar</button><button class="avatar" id="userAvatar">?</button></div>
         </header>
 
         <section class="page active-page" id="home">
           <div class="hero-line">
-            <div><p class="eyebrow">A RESENHA É SÉRIA</p><h1>Fala, <em>cria!</em> <span>⚽</span></h1><p class="subhead">Acompanhe tudo que rolou na última pelada.</p></div>
+            <div><p class="eyebrow">A RESENHA É SÉRIA</p><h1>Fala, <em id="heroGreeting">Visitante</em>! <span>⚽</span></h1><p class="subhead">Acompanhe tudo que rolou na última pelada.</p></div>
             <button class="primary-btn" data-go="draw">Ver sorteio da semana <b>→</b></button>
           </div>
           <div class="stat-grid">
             <article class="stat-card lime"><div class="stat-icon">⚽</div><p>PRÓXIMA PELADA</p><h3>Terça, 22h30</h3><small>Clube do Diário</small></article>
-            <article class="stat-card dark"><div class="stat-icon">♟</div><p>CONFIRMADOS</p><h3><span id="confirmedCount">0</span> <span>/ <span id="capacityCount">15</span></span></h3><div class="mini-progress"><i id="confirmationProgress" style="width:0%"></i></div></article>
+            <button class="stat-card dark stat-card-button" data-go="confirmed" type="button" aria-label="Ver lista de jogadores confirmados"><div class="stat-icon">♟</div><p>CONFIRMADOS</p><h3><span id="confirmedCount">0</span> <span>/ <span id="capacityCount">15</span></span></h3><div class="mini-progress"><i id="confirmationProgress" style="width:0%"></i></div><small class="card-link">Ver lista de confirmados →</small></button>
             <article class="stat-card orange"><div class="stat-icon">R$</div><p>CAIXA ATUAL</p><h3 id="homeBalance">R$ 0,00</h3><small>Aguardando lançamentos</small></article>
           </div>
           <div class="presence-card"><div><p class="eyebrow">PRÓXIMA TERÇA · 22H30</p><h2>Vai colar na pelada?</h2><p id="presenceMessage">Entre na sua conta para confirmar ou recusar sua presença.</p></div><div class="presence-actions"><div class="attendance-buttons"><button class="attendance-action confirmed-action" id="presenceButton" type="button">✓ Confirmado</button><button class="attendance-action absent-action" id="absenceButton" type="button">× Ausente</button></div><textarea class="attendance-justification" id="absenceJustification" hidden maxlength="500" placeholder="Justificativa da ausência (opcional)"></textarea></div><small class="absence-warning">Após informar ausência, a reversão deve ser feita até 2 horas antes da pelada.</small></div>
@@ -59,6 +60,11 @@
           <section class="panel goals-ranking"><div class="panel-title"><div><p class="eyebrow">RANKING</p><h2>Artilheiros da pelada</h2></div><button class="text-btn" data-go="players">Ver estatísticas →</button></div><div id="goalsLeaderboard"></div></section>
         </section>
 
+        <section class="page" id="confirmed">
+          <div class="hero-line"><div><p class="eyebrow">PRÓXIMA PELADA</p><h1>Jogadores <em>confirmados</em></h1><p class="subhead">Lista atualizada em tempo real conforme as presenças são confirmadas.</p></div><button class="text-btn" data-go="players">Ver todos os jogadores →</button></div>
+          <div class="confirmed-players-grid" id="confirmedPlayersList"></div>
+        </section>
+
         <section class="page" id="draw">
           <div class="hero-line"><div><p class="eyebrow">SORTEIO SEMANAL</p><h1>Sorteio dos <em>times</em></h1><p class="subhead">Equilíbrio garantido. Agora é só fazer a parte de vocês.</p></div><button class="primary-btn admin-only" id="reroll">Sortear times <b>↻</b></button></div>
           <div class="draw-meta"><span><b id="drawConfirmedCount">0</b> confirmados</span><span><b>3</b> times</span><span id="drawVacancyCount">15 vagas restantes</span><span>Clube do Diário · Terças, 22h30</span><span>Rua Professor Souto Maior, 286</span></div>
@@ -67,9 +73,14 @@
         </section>
 
         <section class="page" id="players">
-          <div class="hero-line"><div><p class="eyebrow">TEMPORADA 2026</p><h1>Os <em>crias</em> do fut</h1><p class="subhead">Estatísticas atualizadas a cada pelada.</p></div><button class="primary-btn admin-only" id="addPlayer">+ Cadastrar jogador</button></div>
-          <div class="filters"><button class="filter active" data-filter="all">Todos</button><button class="filter" data-filter="attack">Atacantes</button><button class="filter" data-filter="midfield">Meias</button><button class="filter" data-filter="defense">Defensores</button><input id="playerSearch" placeholder="Buscar cria..." /></div>
+          <div class="hero-line"><div><p class="eyebrow">TEMPORADA 2026</p><h1>Jogadores do <em>Barsemlona</em></h1><p class="subhead">Estatísticas atualizadas a cada pelada.</p></div><button class="primary-btn admin-only" id="addPlayer">+ Cadastrar jogador</button></div>
+          <div class="filters"><button class="filter active" data-filter="all">Todos</button><button class="filter" data-filter="attack">Atacantes</button><button class="filter" data-filter="midfield">Meias</button><button class="filter" data-filter="defense">Defensores</button><input id="playerSearch" placeholder="Buscar jogador..." /></div>
           <div class="players-table panel"><div class="table-head"><span>JOGADOR</span><span>Nº</span><span>POSIÇÃO</span><span>⭐</span><span>GOLS</span><span>ASSIST.</span><span>JOGOS</span><span>AÇÕES</span></div><div id="playersList"></div></div>
+        </section>
+
+        <section class="page" id="diarists">
+          <div class="hero-line"><div><p class="eyebrow">SUPERVISÃO DO ADMINISTRADOR</p><h1>Lista de <em>diaristas</em></h1><p class="subhead">Confirmações ordenadas pelo horário em que cada diarista confirmou presença.</p></div></div>
+          <div class="diarists-list panel" id="diaristsList"></div>
         </section>
 
         <section class="page" id="profile">
