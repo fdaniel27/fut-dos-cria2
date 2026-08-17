@@ -231,11 +231,27 @@ class AppHandler(SimpleHTTPRequestHandler):
             else:
                 name, password = data.get("name", "").strip(), data.get("password", "")
                 conn = db()
-                row = conn.execute("SELECT name, password_hash, role FROM users WHERE name=? COLLATE NOCASE", (name,)).fetchone()
+                # casefold cobre maiúsculas/minúsculas também em nomes com acentos.
+                rows = conn.execute("SELECT name, password_hash, role FROM users").fetchall()
+                typed_name = " ".join(name.casefold().split())
+                exact_matches = [candidate for candidate in rows if " ".join(candidate["name"].casefold().split()) == typed_name]
+                first_name_matches = [candidate for candidate in rows if candidate["name"].casefold().split()[0] == typed_name]
+                jersey_matches = []
+                if name.isdigit():
+                    jersey_matches = conn.execute("""SELECT users.name, users.password_hash, users.role
+                        FROM users JOIN players ON players.name = users.name COLLATE NOCASE
+                        WHERE players.jersey_number=?""", (int(name),)).fetchall()
+                requested_role = data.get("account_type")
+                candidates = jersey_matches or exact_matches or first_name_matches
+                if requested_role:
+                    candidates = [candidate for candidate in candidates if candidate["role"] == requested_role]
+                row = candidates[0] if len(candidates) == 1 else None
                 conn.close()
+                if len(candidates) > 1:
+                    label = "número da camisa" if jersey_matches else "primeiro nome"
+                    return self.send_json(409, {"error": f"Há mais de um jogador com esse {label}. Informe o nome completo."})
                 if not row or row["password_hash"] != password_hash(password):
                     return self.send_json(401, {"error": "Nome ou senha incorretos."})
-                requested_role = data.get("account_type")
                 if requested_role and requested_role != row["role"]:
                     return self.send_json(403, {"error": "O tipo de conta selecionado não corresponde a este cadastro."})
                 user = {"name": row["name"], "role": row["role"]}
