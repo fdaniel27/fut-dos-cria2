@@ -289,6 +289,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not name or not position or not foot or not 1 <= stars <= 5 or not 1 <= jersey_number <= 99:
                 return self.send_json(400, {"error": "Preencha nome, número da camisa, posição, perna boa e estrelas."})
             conn = db()
+            if conn.execute("SELECT 1 FROM players WHERE jersey_number=?", (jersey_number,)).fetchone():
+                conn.close()
+                return self.send_json(409, {"error": "Este número de camisa já está em uso."})
             password = data.get("password", "")
             if password:
                 if len(password) < 6: conn.close(); return self.send_json(400, {"error": "A senha precisa ter ao menos 6 caracteres."})
@@ -315,6 +318,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not 1 <= stars <= 5 or goals < 0 or assists < 0 or games < 0 or not 1 <= jersey_number <= 99:
                 return self.send_json(400, {"error": "Use número de camisa entre 1 e 99, estrelas de 1 a 5 e estatísticas não negativas."})
             conn = db()
+            if conn.execute("SELECT 1 FROM players WHERE jersey_number=? AND id<>?", (jersey_number, player_id)).fetchone():
+                conn.close()
+                return self.send_json(409, {"error": "Este número de camisa já está em uso."})
             cursor = conn.execute("UPDATE players SET stars=?, goals=?, assists=?, games=?, jersey_number=? WHERE id=?", (stars, goals, assists, games, jersey_number, player_id))
             conn.commit(); conn.close()
             if not cursor.rowcount:
@@ -332,9 +338,13 @@ class AppHandler(SimpleHTTPRequestHandler):
             phrase = data.get("phrase", "").strip()
             new_password = data.get("password", "")
             photo_url = data.get("photo_url", "").strip()
+            try:
+                jersey_number = int(data.get("jersey_number", 0))
+            except (TypeError, ValueError):
+                jersey_number = 0
             valid_positions = {"Goleiro", "Fixo", "Ala direito", "Ala esquerdo", "Meia", "Pivô", "Atacante"}
-            if len(name) < 2 or len(name) > 80 or position not in valid_positions or foot not in {"Canhoto", "Destro", "Ambidestro"} or not phrase:
-                return self.send_json(400, {"error": "Preencha nome, posição, pé dominante e frase motivacional."})
+            if len(name) < 2 or len(name) > 80 or position not in valid_positions or foot not in {"Canhoto", "Destro", "Ambidestro"} or not phrase or not 1 <= jersey_number <= 99:
+                return self.send_json(400, {"error": "Preencha nome, número da camisa, posição, pé dominante e frase motivacional."})
             if new_password and len(new_password) < 6:
                 return self.send_json(400, {"error": "A nova senha precisa ter ao menos 6 caracteres."})
             if photo_url and (not photo_url.startswith("data:image/") or len(photo_url) > 3_000_000):
@@ -348,12 +358,15 @@ class AppHandler(SimpleHTTPRequestHandler):
             if name.lower() != old_name.lower() and conn.execute("SELECT 1 FROM users WHERE name=? COLLATE NOCASE", (name,)).fetchone():
                 conn.close()
                 return self.send_json(409, {"error": "Esse nome já está em uso."})
+            if conn.execute("SELECT 1 FROM players WHERE jersey_number=? AND id<>?", (jersey_number, player["id"])).fetchone():
+                conn.close()
+                return self.send_json(409, {"error": "Este número de camisa já está em uso."})
             if name != old_name:
                 conn.execute("UPDATE users SET name=? WHERE name=? COLLATE NOCASE", (name, old_name))
                 conn.execute("UPDATE attendance SET player_name=? WHERE player_name=? COLLATE NOCASE", (name, old_name))
             if new_password:
                 conn.execute("UPDATE users SET password_hash=? WHERE name=? COLLATE NOCASE", (password_hash(new_password), name))
-            conn.execute("UPDATE players SET name=?, position=?, foot=?, phrase=?, photo_url=? WHERE id=?", (name, position, foot, phrase, photo_url, player["id"]))
+            conn.execute("UPDATE players SET name=?, position=?, foot=?, phrase=?, photo_url=?, jersey_number=? WHERE id=?", (name, position, foot, phrase, photo_url, jersey_number, player["id"]))
             conn.commit(); conn.close()
             for session in SESSIONS.values():
                 if session.get("role") == "user" and session.get("name", "").lower() == old_name.lower():

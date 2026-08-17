@@ -101,6 +101,7 @@ async function loadProfile(){
   if(!response.ok)return;
   const player=data.player;profilePhotoUrl=player.photo_url||'';
   document.querySelector('#profileName').value=player.name||'';
+  document.querySelector('#profileJersey').value=player.jersey_number||'';
   document.querySelector('#profilePosition').value=player.position||'Atacante';
   document.querySelector('#profileFoot').value=player.foot||'Destro';
   document.querySelector('#profilePhrase').value=player.phrase||'';
@@ -115,7 +116,7 @@ document.querySelector('#profilePhoto').addEventListener('change',event=>{
 });
 document.querySelector('#profileForm').addEventListener('submit',async event=>{
  event.preventDefault();const error=document.querySelector('#profileError');error.textContent='';
- const payload={name:document.querySelector('#profileName').value,position:document.querySelector('#profilePosition').value,foot:document.querySelector('#profileFoot').value,phrase:document.querySelector('#profilePhrase').value,password:document.querySelector('#profilePassword').value,photo_url:profilePhotoUrl};
+ const payload={name:document.querySelector('#profileName').value,jersey_number:document.querySelector('#profileJersey').value,position:document.querySelector('#profilePosition').value,foot:document.querySelector('#profileFoot').value,phrase:document.querySelector('#profilePhrase').value,password:document.querySelector('#profilePassword').value,photo_url:profilePhotoUrl};
  const response=await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();
  if(!response.ok){error.textContent=data.error||'Não foi possível salvar seu perfil.';return}
  updateUser(data.user);await loadPlayers();await loadAttendance();showSuccess('Perfil atualizado','Suas informações foram salvas. As estrelas permanecem sob controle da administração.');
