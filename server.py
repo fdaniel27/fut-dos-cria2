@@ -184,7 +184,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return self.send_json(200, {"diarists": rows})
         if self.path == "/api/attendance":
             conn = db()
-            rows = [dict(row) for row in conn.execute("SELECT player_name,status,justificativa,data_atualizacao,admin_confirmed FROM attendance").fetchall()]
+            rows = [dict(row) for row in conn.execute("""SELECT attendance.player_name, attendance.status, attendance.justificativa,
+                attendance.data_atualizacao, attendance.admin_confirmed, COALESCE(users.role, 'user') AS account_type
+                FROM attendance LEFT JOIN users ON users.name = attendance.player_name COLLATE NOCASE""").fetchall()]
             confirmed_names = [row["player_name"] for row in rows if row["status"] == "confirmado"]
             user = self.session()
             mine = {"status": "pendente", "justificativa": ""}
