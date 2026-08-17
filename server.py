@@ -373,7 +373,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             justification = data.get("justificativa", "").strip()
             if len(justification) > 500:
                 return self.send_json(400, {"error": "A justificativa pode ter no máximo 500 caracteres."})
-            if status == "confirmado":
+            if status in ("confirmado", "pendente"):
                 justification = ""
             player_name = data.get("player_name", "").strip() if is_admin else user["name"]
             conn = db()
