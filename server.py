@@ -187,11 +187,11 @@ class AppHandler(SimpleHTTPRequestHandler):
             rows = [dict(row) for row in conn.execute("""SELECT attendance.player_name, attendance.status, attendance.justificativa,
                 attendance.data_atualizacao, attendance.admin_confirmed, COALESCE(users.role, 'user') AS account_type
                 FROM attendance LEFT JOIN users ON users.name = attendance.player_name COLLATE NOCASE""").fetchall()]
-            confirmed_names = [row["player_name"] for row in rows if row["status"] == "confirmado"]
+            confirmed_names = [row["player_name"] for row in rows if row["status"] == "confirmado" and (row["account_type"] != "diarist" or int(row["admin_confirmed"] or 0) == 1)]
             user = self.session()
-            mine = {"status": "pendente", "justificativa": ""}
+            mine = {"status": "pendente", "justificativa": "", "admin_confirmed": 0}
             if user and user.get("role") in ("user", "diarist"):
-                mine = next(({"status": row["status"], "justificativa": row["justificativa"]} for row in rows if row["player_name"].lower() == user["name"].lower()), mine)
+                mine = next(({"status": row["status"], "justificativa": row["justificativa"], "admin_confirmed": row["admin_confirmed"]} for row in rows if row["player_name"].lower() == user["name"].lower()), mine)
             conn.close()
             return self.send_json(200, {"confirmed": len(confirmed_names), "mine": mine["status"] == "confirmado", "my_attendance": mine, "confirmed_names": confirmed_names, "records": rows})
         return super().do_GET()
@@ -407,11 +407,13 @@ class AppHandler(SimpleHTTPRequestHandler):
             player_name = data.get("player_name", "").strip() if is_admin else user["name"]
             conn = db()
             if is_admin:
+                # Mensalistas têm perfil em players; diaristas existem apenas em users.
                 player = conn.execute("SELECT name FROM players WHERE name=? COLLATE NOCASE", (player_name,)).fetchone()
-                if not player:
+                account = player or conn.execute("SELECT name FROM users WHERE name=? COLLATE NOCASE AND role='diarist'", (player_name,)).fetchone()
+                if not account:
                     conn.close()
                     return self.send_json(404, {"error": "Jogador não encontrado."})
-                player_name = player["name"]
+                player_name = account["name"]
             supervision = 1 if is_admin or user.get("role") != "diarist" else 0
             conn.execute("""INSERT INTO attendance(player_name,confirmed,status,justificativa,updated_at,data_atualizacao,admin_confirmed)
                 VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?)
