@@ -37,3 +37,7 @@
 /* Botões de presença com o mesmo padrão da ação principal */
 .presence-actions .attendance-action{background:var(--ink);color:#fff;border:0;border-radius:7px;padding:14px 17px;font:700 13px 'DM Sans';min-height:auto}
 .presence-actions .attendance-action:hover,.presence-actions .attendance-action.is-active{background:#2b2b2f;color:#fff}
+
+
+/* Remoção de confirmação, exclusiva para administrador */
+.remove-confirmed{display:block;margin-top:9px;border:1px solid #d95a50;background:#fff;color:#ad332c;border-radius:6px;padding:7px 9px;font:700 10px 'DM Sans';cursor:pointer}.remove-confirmed:hover{background:#fff0ee}
