@@ -68,6 +68,12 @@ def db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content TEXT NOT NULL
     )""")
     conn.execute("""CREATE TABLE IF NOT EXISTS waitlist (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS team_draws (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_number INTEGER NOT NULL CHECK(team_number BETWEEN 1 AND 3),
+        player_name TEXT NOT NULL UNIQUE,
+        drawn_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
     conn.execute("""CREATE TABLE IF NOT EXISTS attendance (
         player_name TEXT PRIMARY KEY,
         confirmed INTEGER NOT NULL DEFAULT 0,
@@ -182,6 +188,14 @@ class AppHandler(SimpleHTTPRequestHandler):
                 for row in rows:
                     row["justificativa"] = ""
             return self.send_json(200, {"diarists": rows})
+        if self.path == "/api/draw":
+            conn = db()
+            rows = [dict(row) for row in conn.execute("SELECT team_number, player_name, drawn_at FROM team_draws ORDER BY team_number, id").fetchall()]
+            conn.close()
+            teams = [[], [], []]
+            for row in rows:
+                teams[row["team_number"] - 1].append(row["player_name"])
+            return self.send_json(200, {"teams": teams, "drawn_at": rows[0]["drawn_at"] if rows else None})
         if self.path == "/api/attendance":
             conn = db()
             rows = [dict(row) for row in conn.execute("""SELECT attendance.player_name, attendance.status, attendance.justificativa,
@@ -441,6 +455,32 @@ class AppHandler(SimpleHTTPRequestHandler):
             conn.execute("UPDATE attendance SET admin_confirmed=1, data_atualizacao=CURRENT_TIMESTAMP WHERE player_name=? COLLATE NOCASE", (diarist["name"],))
             conn.commit(); conn.close()
             return self.send_json(200, {"message": "Confirmação do diarista aprovada."})
+
+        if self.path == "/api/draw":
+            user = self.session()
+            if not user or user.get("role") != "admin":
+                return self.send_json(403, {"error": "Apenas o administrador pode sortear os times."})
+            raw_teams = self.body().get("teams")
+            if not isinstance(raw_teams, list) or len(raw_teams) != 3 or not all(isinstance(team, list) for team in raw_teams):
+                return self.send_json(400, {"error": "Formato de times inválido."})
+            submitted_names = [name.strip() for team in raw_teams for name in team if isinstance(name, str) and name.strip()]
+            conn = db()
+            attendance_rows = conn.execute("""SELECT attendance.player_name, attendance.status,
+                attendance.admin_confirmed, COALESCE(users.role, 'user') AS account_type
+                FROM attendance LEFT JOIN users ON users.name = attendance.player_name COLLATE NOCASE""").fetchall()
+            eligible = {row["player_name"].casefold(): row["player_name"] for row in attendance_rows
+                if row["status"] == "confirmado" and (row["account_type"] != "diarist" or int(row["admin_confirmed"] or 0) == 1)}
+            submitted_keys = [name.casefold() for name in submitted_names]
+            if len(submitted_keys) != len(set(submitted_keys)) or set(submitted_keys) != set(eligible):
+                conn.close()
+                return self.send_json(400, {"error": "O sorteio precisa conter exatamente todos os jogadores confirmados e aprovados."})
+            conn.execute("DELETE FROM team_draws")
+            conn.executemany("INSERT INTO team_draws(team_number, player_name) VALUES(?,?)", [
+                (number, eligible[name.casefold()]) for number, team in enumerate(raw_teams, 1) for name in team
+            ])
+            conn.commit()
+            conn.close()
+            return self.send_json(200, {"message": "Times sorteados e publicados para todos."})
 
         if self.path == "/api/logout":
             cookie = cookies.SimpleCookie(self.headers.get("Cookie"))

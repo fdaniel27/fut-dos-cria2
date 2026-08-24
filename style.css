@@ -41,3 +41,7 @@
 
 /* Remoção de confirmação, exclusiva para administrador */
 .remove-confirmed{display:block;margin-top:9px;border:1px solid #d95a50;background:#fff;color:#ad332c;border-radius:6px;padding:7px 9px;font:700 10px 'DM Sans';cursor:pointer}.remove-confirmed:hover{background:#fff0ee}
+
+
+/* Destaque do time do jogador logado */
+.my-team-card{border:2px solid var(--lime);box-shadow:0 0 0 3px #cbff3e33}.my-player-row{background:#f5ffd7;border-radius:7px;padding-left:7px;padding-right:7px}.my-team-status{font-weight:800;color:#28732c;background:#eaf7e9;padding:7px 10px;border-radius:999px}
