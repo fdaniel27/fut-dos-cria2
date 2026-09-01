@@ -45,8 +45,11 @@ def db():
         role TEXT NOT NULL DEFAULT 'user',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
-    if "role" not in {row[1] for row in conn.execute("PRAGMA table_info(users)")}:
+    user_columns = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+    if "role" not in user_columns:
         conn.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+    if "stars" not in user_columns:
+        conn.execute("ALTER TABLE users ADD COLUMN stars INTEGER NOT NULL DEFAULT 3")
     conn.execute("""CREATE TABLE IF NOT EXISTS finance_transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description TEXT NOT NULL,
@@ -176,7 +179,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             user = self.session()
             is_admin = bool(user and user.get("role") == "admin")
             conn = db()
-            rows = [dict(row) for row in conn.execute("""SELECT users.name, COALESCE(attendance.status, 'pendente') AS status,
+            rows = [dict(row) for row in conn.execute("""SELECT users.name, COALESCE(users.stars, 3) AS stars,
+                COALESCE(attendance.status, 'pendente') AS status,
                 COALESCE(attendance.justificativa, '') AS justificativa, attendance.data_atualizacao,
                 COALESCE(attendance.admin_confirmed, 0) AS admin_confirmed
                 FROM users LEFT JOIN attendance ON attendance.player_name = users.name COLLATE NOCASE
@@ -199,7 +203,8 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/attendance":
             conn = db()
             rows = [dict(row) for row in conn.execute("""SELECT attendance.player_name, attendance.status, attendance.justificativa,
-                attendance.data_atualizacao, attendance.admin_confirmed, COALESCE(users.role, 'user') AS account_type
+                attendance.data_atualizacao, attendance.admin_confirmed, COALESCE(users.role, 'user') AS account_type,
+                COALESCE(users.stars, 3) AS diarist_stars
                 FROM attendance LEFT JOIN users ON users.name = attendance.player_name COLLATE NOCASE""").fetchall()]
             confirmed_names = [row["player_name"] for row in rows if row["status"] == "confirmado" and (row["account_type"] != "diarist" or int(row["admin_confirmed"] or 0) == 1)]
             user = self.session()
@@ -437,6 +442,28 @@ class AppHandler(SimpleHTTPRequestHandler):
                 (player_name, int(status == "confirmado"), status, justification, supervision))
             conn.commit(); conn.close()
             return self.send_json(200, {"message": "Presença atualizada.", "status": status, "justificativa": justification})
+
+        if self.path == "/api/diarists/stars":
+            user = self.session()
+            if not user or user.get("role") != "admin":
+                return self.send_json(403, {"error": "Apenas o administrador pode alterar estrelas de diaristas."})
+            data = self.body()
+            player_name = data.get("player_name", "").strip()
+            try:
+                stars = int(data.get("stars", 0))
+            except (TypeError, ValueError):
+                stars = 0
+            if not player_name or not 1 <= stars <= 5:
+                return self.send_json(400, {"error": "Escolha entre 1 e 5 estrelas."})
+            conn = db()
+            diarist = conn.execute("SELECT name FROM users WHERE name=? COLLATE NOCASE AND role='diarist'", (player_name,)).fetchone()
+            if not diarist:
+                conn.close()
+                return self.send_json(404, {"error": "Diarista não encontrado."})
+            conn.execute("UPDATE users SET stars=? WHERE name=? COLLATE NOCASE", (stars, diarist["name"]))
+            conn.commit()
+            conn.close()
+            return self.send_json(200, {"message": "Estrelas do diarista atualizadas.", "stars": stars})
 
         if self.path == "/api/attendance/admin/approve":
             user = self.session()
